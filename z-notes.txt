@@ -1,3 +1,5 @@
+git push origin master
+
 echo "# jc-acf-utils" >> README.md
 git init
 git add README.md
@@ -9,3 +11,4 @@ git push -u origin main
 git remote add origin https://github.com/jcicaro/jc-acf-utils.git
 git branch -M main
 git push -u origin main
+

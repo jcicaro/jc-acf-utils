@@ -77,8 +77,9 @@ class JC_ACF_Shortcodes {
 			'new_post'        => array(
 				// Use the dynamic and sanitized slug here
 				'post_type'   => $post_type_slug, // <-- THE DYNAMIC SLUG
-				'post_status' => 'draft',
+				'post_status' => 'publish',
 			),
+			'return'          => home_url( '/?post_type=' . $post_type_slug . '&p=%post_id%' ),
 			'field_groups'    => $field_groups_array,
 			'submit_value'    => 'Submit Content',
 			// SECURITY: Always use a nonce in the form to ensure submission legitimacy
@@ -120,11 +121,17 @@ class JC_ACF_Shortcodes {
 
 		// --- 1. Retrieve and Validate URL Parameters ---
 
-		// Check if 'p' (Post ID) is present
-		if ( ! isset( $_GET['p'] ) ) {
-			return '<div class="acf-notice -error"><p>Error: Missing Record ID (p).</p></div>';
+		// Check if 'p' (Post ID) is present, otherwise try get_the_ID()
+		$url_post_id = 0;
+		if ( isset( $_GET['p'] ) ) {
+			$url_post_id = absint( $_GET['p'] );
+		} else {
+			$url_post_id = get_the_ID();
 		}
-		$url_post_id = absint( $_GET['p'] );
+
+		if ( ! $url_post_id ) {
+			return '<div class="acf-notice -error"><p>Error: Missing Record ID.</p></div>';
+		}
 		$title_field = sanitize_text_field( $atts['title_field'] );
 
 		// Check if the post actually exists
@@ -167,13 +174,13 @@ class JC_ACF_Shortcodes {
 				'class' => 'acf-form-edit-' . $allowed_post_type,
 			),
 			// Ensure parameters persist after submit
-			'return'          => add_query_arg(
+			'return'          => ( isset( $_GET['p'] ) ) ? add_query_arg(
 				array(
 					'p'         => $url_post_id,
 					'post_type' => $allowed_post_type,
 				),
-				get_permalink()
-			),
+				home_url( '/' ) // Use home_url to ensure we build from root if using query args
+			) : get_permalink( $url_post_id ),
 		);
 
 		// Hidden input for title updating
