@@ -1,0 +1,268 @@
+<?php
+/**
+ * ACF Forms Registration
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * 1. Load acf_form_head() BEFORE headers are sent.
+ * * CHANGED: Switched from 'wp_head' to 'template_redirect'.
+ * This allows 'is_page()' to work while still being early enough to process redirects.
+ */
+add_action('template_redirect', function() {
+    // Check if ACF is active
+    if ( ! function_exists('acf_form_head') ) {
+        return;
+    }
+
+    // Conditionally load it only on your form page
+    // Ensure 'temp' matches your page slug exactly
+    // if ( is_page( 'temp' ) ) { 
+        acf_form_head();
+    // }
+});
+
+
+/**
+ * 2. Shortcode to render ACF Frontend Form with dynamic Field Group and Post Type
+ * Usage: [jc_acf_form_new_post field_group="ID_HERE" post_type="SLUG_HERE" title_field="FIELD_NAME_HERE"]
+ */
+add_shortcode('jc_acf_form_new_post', function($atts) {
+
+    // Define default attributes and merge with user-provided attributes
+    $atts = shortcode_atts(
+        array(
+            'field_group' => '', // Default to empty/nothing if not provided
+            'post_type'   => 'post', // Default to 'post' if not provided
+            'title_field' => '', // NEW: Field to use for the post title
+        ),
+        $atts,
+        'jc_acf_form_new_post'
+    );
+
+    // --- 1. Retrieve and Validate Attributes ---
+
+    // Retrieve and ensure the Field Group ID is an integer
+    $field_group_id = intval($atts['field_group']);
+
+    // Retrieve and Sanitize the Post Type slug
+    $post_type_slug = sanitize_key($atts['post_type']);
+    
+    // Retrieve the title field name
+    $title_field = sanitize_text_field($atts['title_field']);
+
+    // Check if function exists and if a valid ID was passed
+    if( !function_exists('acf_form') || $field_group_id === 0 ) {
+        if (WP_DEBUG) {
+            error_log('ACF Form Shortcode Error: Field Group ID is missing or invalid.');
+        }
+        return '';
+    }
+    
+    // Optional: Check if the post type slug is valid (e.g., exists in WordPress)
+    if ( ! post_type_exists( $post_type_slug ) ) {
+        if (WP_DEBUG) {
+            error_log("ACF Form Shortcode Error: Post Type slug '{$post_type_slug}' is not registered.");
+        }
+        return '';
+    }
+
+    // Prepare the field_groups argument as an array (required by ACF)
+    $field_groups_array = array($field_group_id);
+
+    // --- 2. Render the Form ---
+
+    // Start Output Buffering (Keeps form output at shortcode location)
+    ob_start();
+
+    $form_args = array(
+        'post_id'      => 'new_post',
+        'new_post'     => array(
+            // Use the dynamic and sanitized slug here
+            'post_type'    => $post_type_slug, // <-- THE DYNAMIC SLUG
+            'post_status'  => 'draft', 
+        ),
+        'field_groups' => $field_groups_array,
+        'submit_value' => 'Submit Content',
+        // SECURITY: Always use a nonce in the form to ensure submission legitimacy
+        'form_attributes' => array(
+            'class' => 'acf-form acf-form-new-post-' . $post_type_slug,
+        ),
+    );
+
+    // If a title field is specified, add a hidden input to pass this info to the save_post hook
+    if ( ! empty( $title_field ) ) {
+        $form_args['html_after_fields'] = '<input type="hidden" name="_jc_acf_title_field" value="' . esc_attr( $title_field ) . '">';
+    }
+
+    acf_form( $form_args );
+
+    // Return the buffered content
+    return ob_get_clean();
+});
+
+/**
+ * 3. Update Post Title from ACF Field and Insert Shortcode
+ * Hook into acf/save_post to update the post title and post content 
+ * for newly created posts.
+ */
+add_action('acf/save_post', function( $post_id ) {
+    
+    // Bail if not a new post created via the front-end form
+    if ( ! isset( $_POST['_acf_post_id'] ) || $_POST['_acf_post_id'] !== 'new_post' ) {
+        // If it's an existing post update, we still proceed for title update
+        // but only if our title field hidden input is present.
+        if ( ! isset( $_POST['_jc_acf_title_field'] ) ) {
+            return;
+        }
+    }
+    
+    // SECURITY: Ensure we are only running for posts and not term/user updates, 
+    // although the ACF form handles this post_id will be an integer.
+    if ( ! is_numeric( $post_id ) ) {
+        return;
+    }
+
+    $update_args = array( 'ID' => $post_id );
+    $post_updated = false;
+    
+    // --- 1. Handle Post Title Update ---
+    
+    if ( isset( $_POST['_jc_acf_title_field'] ) ) {
+        // Get the field name that should be used for the title
+        $title_field_name = sanitize_text_field( $_POST['_jc_acf_title_field'] );
+
+        // Get the value of that field
+        $new_title = get_field( $title_field_name, $post_id );
+
+        if ( ! empty( $new_title ) ) {
+            $update_args['post_title'] = $new_title;
+            $post_updated = true;
+        }
+    }
+
+    // --- 2. Handle Shortcode Insertion for NEW Posts Only ---
+    
+    // Check if a new post was just created by the ACF form
+    $is_new_post_submission = ( isset( $_POST['_acf_post_id'] ) && $_POST['_acf_post_id'] === 'new_post' );
+    
+    if ( $is_new_post_submission ) {
+        
+        // Define the shortcode you want to include
+        $shortcode_to_insert = '[jc_acf_form_update_post title_field="text_field"]';
+        
+        // Retrieve the current post content (it's likely empty or default from ACF)
+        $current_post_content = get_post_field( 'post_content', $post_id );
+
+        // IMPORTANT: Only insert if the content doesn't already have it
+        if ( strpos( $current_post_content, $shortcode_to_insert ) === false ) {
+            
+            // Append the shortcode to the existing content (if any)
+            $new_post_content = $current_post_content . "\n\n" . $shortcode_to_insert;
+            
+            // Set the new content for update
+            $update_args['post_content'] = $new_post_content;
+            $post_updated = true;
+            
+            // Optional: You might want to automatically change the post status from 'draft'
+            // to 'publish' here if the new post shortcode did not set it already.
+            // $update_args['post_status'] = 'publish';
+        }
+    }
+    
+    // --- 3. Perform the Update ---
+    
+    if ( $post_updated ) {
+        // Update the post title and/or content in one go
+        // SECURITY: wp_update_post handles sanitization for these fields internally.
+        wp_update_post( $update_args );
+    }
+
+}, 20); // Priority 20 to ensure ACF has saved the data first
+
+
+
+/**
+ * 3. Shortcode specifically for UPDATING a record using standard WP params
+ * MODIFIED: Field Group and Post Type are now detected automatically from the Post ID.
+ * Usage: [jc_acf_form_update_post title_field="text_field"]
+ * Target URL structure: ?post_type=sandbox&p=563
+ */
+add_shortcode('jc_acf_form_update_post', function($atts) {
+
+    // Define attributes
+    $atts = shortcode_atts(
+        array(
+            // Removed field_group and post_type as they are detected from the post object
+            'title_field' => '',        // Optional: Field to sync with Post Title
+        ),
+        $atts,
+        'jc_acf_form_update_post'
+    );
+
+    // --- 1. Retrieve and Validate URL Parameters ---
+    
+    // Check if 'p' (Post ID) is present
+    if ( ! isset( $_GET['p'] ) ) {
+        return '<div class="acf-notice -error"><p>Error: Missing Record ID (p).</p></div>';
+    }
+    $url_post_id = absint( $_GET['p'] );
+    $title_field = sanitize_text_field($atts['title_field']);
+    
+    // Check if the post actually exists
+    $post_object = get_post( $url_post_id );
+    if ( ! $post_object ) {
+        return '<div class="acf-notice -error"><p>Record not found.</p></div>';
+    }
+
+    // --- 2. Security Check & Automatic Detection ---
+
+    // Automatically determine the Post Type from the loaded object
+    $allowed_post_type = $post_object->post_type;
+
+    // Check if 'post_type' is present in URL (optional, but good for linking)
+    if ( isset( $_GET['post_type'] ) && sanitize_key($_GET['post_type']) !== $allowed_post_type ) {
+        // If the URL parameter doesn't match the actual post type, it's a security/linking mismatch
+        if (WP_DEBUG) error_log("ACF Edit Form: URL post_type mismatch for ID {$url_post_id}.");
+        // You could block this, but we will proceed based on the actual post type for editing.
+    }
+
+    // Check Permissions
+    if ( ! current_user_can( 'edit_post', $url_post_id ) ) {
+        return '<div class="acf-notice -error"><p>You do not have permission to edit this record.</p></div>';
+    }
+
+    // --- 3. Render the Edit Form ---
+
+    ob_start();
+
+    $form_args = array(
+        'post_id'      => $url_post_id, // ACF loads data and field groups based on this ID
+        // **FIELD GROUPS ARE OMITTED HERE**
+        // ACF will automatically look up the Field Groups assigned to $post_object->post_type
+        'submit_value' => 'Update Record',
+        'updated_message' => 'Record updated successfully.',
+        'form_attributes' => array(
+            // Use the detected post type for the class name
+            'class' => 'acf-form-edit-' . $allowed_post_type, 
+        ),
+        // Ensure parameters persist after submit
+        'return' => add_query_arg( 
+            array( 'p' => $url_post_id, 'post_type' => $allowed_post_type ), 
+            get_permalink()
+        ),
+    );
+
+    // Hidden input for title updating
+    if ( ! empty( $title_field ) ) {
+        $form_args['html_after_fields'] = '<input type="hidden" name="_jc_acf_title_field" value="' . esc_attr( $title_field ) . '">';
+    }
+
+    // If no field groups are assigned to this CPT, acf_form() will render nothing.
+    acf_form( $form_args );
+
+    return ob_get_clean();
+});
