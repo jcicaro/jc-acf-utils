@@ -29,11 +29,7 @@ class JC_ACF_Forms {
 			return;
 		}
 
-		// Conditionally load it only on your form page
-		// Ensure 'temp' matches your page slug exactly
-		// if ( is_page( 'temp' ) ) {
-			acf_form_head();
-		// }
+		acf_form_head();
 	}
 
 	/**
@@ -48,7 +44,9 @@ class JC_ACF_Forms {
 		if ( ! isset( $_POST['_acf_post_id'] ) || $_POST['_acf_post_id'] !== 'new_post' ) {
 			// If it's an existing post update, we still proceed for title update
 			// but only if our title field hidden input is present.
-			if ( ! isset( $_POST['_jc_acf_title_field'] ) ) {
+			// If it's an existing post update, we still proceed for title update
+			// but only if our title field hidden input is present.
+			if ( ! isset( $_POST[ JC_ACF_Core::HIDDEN_FIELD_TITLE ] ) ) {
 				return;
 			}
 		}
@@ -64,9 +62,9 @@ class JC_ACF_Forms {
 
 		// --- 1. Handle Post Title Update ---
 
-		if ( isset( $_POST['_jc_acf_title_field'] ) ) {
+		if ( isset( $_POST[ JC_ACF_Core::HIDDEN_FIELD_TITLE ] ) ) {
 			// Get the field name that should be used for the title
-			$title_field_name = sanitize_text_field( $_POST['_jc_acf_title_field'] );
+			$title_field_name = sanitize_text_field( $_POST[ JC_ACF_Core::HIDDEN_FIELD_TITLE ] );
 
 			// Get the value of that field
 			$new_title = get_field( $title_field_name, $post_id );
@@ -85,7 +83,7 @@ class JC_ACF_Forms {
 		if ( $is_new_post_submission ) {
 
 			// Define the shortcode you want to include
-			$shortcode_to_insert = '[jc_acf_form_update_post title_field="text_field"]';
+			$shortcode_to_insert = sprintf( '[%s title_field="text_field"]', JC_ACF_Core::SHORTCODE_UPDATE_POST );
 
 			// Retrieve the current post content (it's likely empty or default from ACF)
 			$current_post_content = get_post_field( 'post_content', $post_id );

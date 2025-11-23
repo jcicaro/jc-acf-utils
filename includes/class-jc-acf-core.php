@@ -11,6 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 class JC_ACF_Core {
 
 	/**
+	 * Constants
+	 */
+	const SHORTCODE_NEW_POST    = 'jc_acf_form_new_post';
+	const SHORTCODE_UPDATE_POST = 'jc_acf_form_update_post';
+	const HIDDEN_FIELD_TITLE    = '_jc_acf_title_field';
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
