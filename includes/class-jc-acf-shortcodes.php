@@ -16,6 +16,7 @@ class JC_ACF_Shortcodes {
 	public function __construct() {
 		add_shortcode( JC_ACF_Core::SHORTCODE_NEW_POST, array( $this, 'render_new_post_form' ) );
 		add_shortcode( JC_ACF_Core::SHORTCODE_UPDATE_POST, array( $this, 'render_update_post_form' ) );
+		add_shortcode( JC_ACF_Core::SHORTCODE_LIST_RECORDS, array( $this, 'render_list_records' ) );
 	}
 
 	/**
@@ -155,5 +156,88 @@ class JC_ACF_Shortcodes {
 			esc_attr( JC_ACF_Core::HIDDEN_FIELD_TITLE ),
 			esc_attr( $field_name )
 		);
+	}
+	/**
+	 * Shortcode to list records of a specific post type with values from a specific field group.
+	 *
+	 * @param array $atts Shortcode attributes.
+	 * @return string List HTML.
+	 */
+	public function render_list_records( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'field_group' => '',
+				'post_type'   => 'post',
+			),
+			$atts,
+			JC_ACF_Core::SHORTCODE_LIST_RECORDS
+		);
+
+		$field_group_id = intval( $atts['field_group'] );
+		$post_type_slug = sanitize_key( $atts['post_type'] );
+
+		if ( ! function_exists( 'acf_get_fields' ) || 0 === $field_group_id ) {
+			return '<p>Error: ACF not active or invalid field group.</p>';
+		}
+
+		if ( ! post_type_exists( $post_type_slug ) ) {
+			return '<p>Error: Invalid post type.</p>';
+		}
+
+		// Get fields from the field group
+		$fields = acf_get_fields( $field_group_id );
+
+		if ( ! $fields ) {
+			return '<p>Error: No fields found for this group.</p>';
+		}
+
+		// Get posts
+		$posts = get_posts(
+			array(
+				'post_type'      => $post_type_slug,
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+			)
+		);
+
+		if ( empty( $posts ) ) {
+			return '<p>No records found.</p>';
+		}
+
+		ob_start();
+		?>
+		<div class="jc-acf-records-list">
+			<table class="widefat fixed striped jc-acf-records-table">
+				<thead>
+					<tr>
+						<th>Title</th>
+						<?php foreach ( $fields as $field ) : ?>
+							<th><?php echo esc_html( $field['label'] ); ?></th>
+						<?php endforeach; ?>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $posts as $post ) : ?>
+						<tr class="jc-acf-record-row" data-url="<?php echo esc_url( get_permalink( $post->ID ) ); ?>">
+							<td><?php echo esc_html( get_the_title( $post->ID ) ); ?></td>
+							<?php foreach ( $fields as $field ) : ?>
+								<td>
+									<?php
+									$value = get_field( $field['name'], $post->ID );
+									if ( is_array( $value ) ) {
+										echo esc_html( implode( ', ', $value ) );
+									} else {
+										echo esc_html( $value );
+									}
+									?>
+								</td>
+							<?php endforeach; ?>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
+		return ob_get_clean();
 	}
 }
