@@ -68,7 +68,9 @@ class JC_ACF_Shortcodes {
 			$form_args['html_after_fields'] = $this->get_title_field_html( $title_field );
 		}
 
+		echo '<div class="jc-acf-form-container">';
 		acf_form( $form_args );
+		echo '</div>';
 
 		return ob_get_clean();
 	}
@@ -127,7 +129,9 @@ class JC_ACF_Shortcodes {
 			$form_args['html_after_fields'] = $this->get_title_field_html( $title_field );
 		}
 
+		echo '<div class="jc-acf-form-container">';
 		acf_form( $form_args );
+		echo '</div>';
 
 		return ob_get_clean();
 	}

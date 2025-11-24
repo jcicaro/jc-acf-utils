@@ -57,3 +57,80 @@
 .jc-acf-record-row:active {
     background-color: #f0f2f4;
 }
+
+/* Form Container */
+.jc-acf-form-container {
+    background: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 30px;
+    max-width: 800px;
+    margin: 20px 0;
+}
+
+/* ACF Form Styles within Container */
+.jc-acf-form-container .acf-field {
+    margin-bottom: 20px;
+}
+
+.jc-acf-form-container .acf-label label {
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 12px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.jc-acf-form-container input[type="text"],
+.jc-acf-form-container input[type="email"],
+.jc-acf-form-container input[type="number"],
+.jc-acf-form-container input[type="password"],
+.jc-acf-form-container input[type="search"],
+.jc-acf-form-container input[type="tel"],
+.jc-acf-form-container input[type="url"],
+.jc-acf-form-container textarea,
+.jc-acf-form-container select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e1e4e8;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.jc-acf-form-container input:focus,
+.jc-acf-form-container textarea:focus,
+.jc-acf-form-container select:focus {
+    border-color: #007cba;
+    outline: none;
+    box-shadow: 0 0 0 1px #007cba;
+}
+
+.jc-acf-form-container .acf-form-submit {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.jc-acf-form-container .acf-button.button-primary {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+    line-height: normal;
+    height: auto;
+}
+
+.jc-acf-form-container .acf-button.button-primary:hover {
+    background-color: #555;
+}
